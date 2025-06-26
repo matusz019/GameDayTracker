@@ -19,7 +19,9 @@ fixtures = soup.find_all("div", class_="fixtureCardSecondSlot_mainInfoContainer_
 
 for fixture in fixtures:
     location_div = fixture.find("span", class_="fixtureCardSecondSlot_matchLocation__ZNvqU")
+    date_div = fixture.find("span", class_="fixtureCardSecondSlot_date__wXoh1")
     
     if location_div and "Elland Road" in location_div.text:
         print(location_div.text)
+        print(date_div.text)
         print("Match found")
