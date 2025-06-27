@@ -3,6 +3,7 @@ import os.path
 
 import re
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from Scraper import get_matches
 from google.auth.transport.requests import Request
@@ -14,12 +15,18 @@ from googleapiclient.errors import HttpError
 # If modifying these scopes, delete the file token.json.
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 
+def remove_ordinal_suffix(dayStr):
+  return re.sub(r'(\d+)(st|nd|rd|th)', r'\1', dayStr)
 
 def create_event(service, match):
-  # Convert match["date"] and match["time"] into datetime
-  dt_str = f"{match['date']} {match['time']}"
-  start_dt = datetime.datetime.strptime(dt_str, "%Y-%m-%d %H:%M")  # Adjust format as needed
-  end_dt = start_dt + datetime.timedelta(hours=1.5)
+  # Clean and parse datetime
+  raw_date_time = f"{match['date']} {match['time']}"  # e.g., '2nd Aug 2025 15:00'
+  cleaned_date_time = remove_ordinal_suffix(raw_date_time)
+  start_dt_naive = datetime.strptime(cleaned_date_time, "%d %b %Y %H:%M")
+  
+  # Attach timezone info
+  start_dt = start_dt_naive.replace(tzinfo=ZoneInfo("Europe/London"))
+  end_dt = start_dt + timedelta(minutes=90)
   
   event = {
     "summary": match["summary"],
@@ -33,6 +40,13 @@ def create_event(service, match):
       "dateTime": end_dt.isoformat(),
       "timeZone": "Europe/London",
     },
+    'reminders':{
+      'useDefault': False,
+      'overrides':[
+        {'method': 'popup', 'minutes' : 1440},
+        {'method': 'popup', 'minutes' : 300},
+      ]
+    }
   }
   
   event = service.events().insert(calendarId="primary", body=event).execute()
