@@ -1,6 +1,10 @@
 import datetime
 import os.path
 
+import re
+from datetime import datetime, timedelta
+
+from Scraper import get_matches
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -9,6 +13,31 @@ from googleapiclient.errors import HttpError
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
+
+
+def create_event(service, match):
+  # Convert match["date"] and match["time"] into datetime
+  dt_str = f"{match['date']} {match['time']}"
+  start_dt = datetime.datetime.strptime(dt_str, "%Y-%m-%d %H:%M")  # Adjust format as needed
+  end_dt = start_dt + datetime.timedelta(hours=1.5)
+  
+  event = {
+    "summary": match["summary"],
+    "location": match["location"],
+    "description": "Match added from Leeds United website",
+    "start": {
+      "dateTime": start_dt.isoformat(),
+      "timeZone": "Europe/London",
+    },
+    "end": {
+      "dateTime": end_dt.isoformat(),
+      "timeZone": "Europe/London",
+    },
+  }
+  
+  event = service.events().insert(calendarId="primary", body=event).execute()
+  print("Event created:", event.get("htmlLink"))
+
 
 
 def main():
@@ -37,32 +66,10 @@ def main():
   try:
     service = build("calendar", "v3", credentials=creds)
     
-    event = {
-      'summary': 'Match',
-      'location': 'Elland Road',
-      'description': 'this is a test',
-      'start': {
-        'dateTime': '2025-06-28T09:00:00+01:00',
-        'timeZone': 'Europe/London',
-      },
-      'end': {
-        'dateTime': '2025-06-28T12:00:00+01:00',
-        'timeZone': 'Europe/London',
-      },
-      'reminders': {
-        'useDefault': False,
-        'overrides': [
-          {'method': 'popup', 'minutes': 10},
-        ],
-      },
-    }
-    
-    event = service.events().insert(calendarId='primary', body = event).execute()
-    print('Event created: %s' % (event.get('htmlLink')))
+    matches= get_matches("https://www.leedsunited.com/en/matches/mens-team/fixtures")
+    for match in matches:
+      create_event(service, match)
       
-      
-      
-
   except HttpError as error:
     print(f"An error occurred: {error}")
 
